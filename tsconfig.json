@@ -4,6 +4,8 @@
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "moduleResolution": "node",
     "experimentalDecorators": true,
     "target": "es2017",
     "sourceMap": true,
