@@ -1,37 +1,53 @@
 import _ from 'lodash'
+import R from 'ramda'
 import puppeteer from 'puppeteer'
 import { Injectable } from '@nestjs/common'
 import { SearchResult } from '../types/search-result.types'
+import FetchJob from '@modules/crawler/domain/fetch/FetchJob'
 
 @Injectable()
 export class CrawlerService {
-  private readonly arr: ResultStore = {}
+  private _browser: puppeteer.Browser = null
+  private _page: puppeteer.Page = null
+  private fetchJob: FetchJob
 
-  store(keyword: string, result: ResultStore) {
-    this.arr[keyword] = result
+  async bootstrap() {
+    this._browser = await puppeteer.launch()
+    this._page = await this._browser.newPage()
+    this.fetchJob = new FetchJob()
   }
 
-  findAll(): ResultStore[] {
-    return this.arr
+  async page() {
+    if (!this._page) {
+      await this.bootstrap()
+    }
+
+    return this._page
   }
 
-  async fetchPage(keyword: string): Promise<string> {
-    // go
-    const browser = await puppeteer.launch()
-    const page = await browser.newPage()
+  async fetchPage(keyword: string, pageNumber: number = 2): Promise<string> {
+    const page = await this.page()
     await page.goto(getUrl(keyword), gotoOptions)
 
-    // evaluates
-    await page.evaluate(removeContent)
-    await page.waitForSelector('h3')
-    const data = await page.evaluate(getRankData)
+    const doTimesAndBatchPromise = <T>(
+      times: number,
+      fn: () => Promise<T>
+    ):Promise<T[]> => Promise.all(_.times(times, fn))
 
-    browser.close()
+    const addRankFromIndex = (r: SearchResult, index) => ({ ...r, rank: index + 1 })
 
-    // cache
-    this.store(keyword, data)
+    const data = await R.pipeP(
+      // crawl SERPs from page 1 to N
+      _.partialRight(doTimesAndBatchPromise, (index) => this.fetchJob.exec(page, index)),
 
-    return Promise.resolve(data)
+      // transform
+      _.flatten,
+      _.partialRight(_.map, addRankFromIndex),
+    )(pageNumber)
+
+    // this._browser.close()
+
+    return Promise.resolve(JSON.stringify(data))
   }
 }
 
@@ -44,27 +60,4 @@ const getUrl = (query, page = 1) => {
 const gotoOptions = {
   waitUntil: 'networkidle0' as const,
   timeout: 6000,
-}
-
-type ResultStore = any
-
-// in browser
-const getRankData = () => {
-  const elements = document.querySelectorAll('h3 > span')
-  const data = [].slice.call(elements).map((element: HTMLElement, index) => {
-    const link = element.parentElement.parentElement.getAttribute('href')
-    return {
-      rank: index + 1,
-      link,
-      title: element.innerText,
-    } as SearchResult
-  })
-  return JSON.stringify(data)
-}
-
-const removeContent = () => {
-  const elements = document.querySelectorAll('script, link, style')
-  for (const e of Array.from(elements)) {
-    e.remove()
-  }
 }
