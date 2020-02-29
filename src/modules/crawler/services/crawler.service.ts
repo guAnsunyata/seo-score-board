@@ -36,6 +36,7 @@ export class CrawlerService {
 
     const addRankFromIndex = (r: SearchResult, index) => ({ ...r, rank: index + 1 })
 
+    // @todo pipeWith https://stackoverflow.com/questions/59229787/alternative-to-deprecated-pipep-in-ramda
     const data = await R.pipeP(
       // crawl SERPs from page 1 to N
       _.partialRight(doTimesAndBatchPromise, (index) => this.fetchJob.exec(page, index)),
