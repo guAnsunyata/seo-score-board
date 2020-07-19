@@ -24,7 +24,7 @@
     "@nestjs/core": "^6.7.2",
     "@nestjs/platform-express": "^6.7.2",
     "@types/lodash": "^4.14.149",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "puppeteer": "^2.0.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.0",
